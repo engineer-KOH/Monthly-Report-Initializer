@@ -20,9 +20,15 @@
 - **出力 (Outputs)**: 新月・新期間用に適切に初期化・セットアップされた成果報告用Excelファイルの生成
 
 ## 🚀 使い方（Quick Start）
-- **1.リポジトリのクローン**: 「git clone [https://github.com/mochapaparocku-crypto/Monthly-Report-Initializer.git](https://github.com/mochapaparocku-crypto/Monthly-Report-Initializer.git)」
-- **2.依存ライブラリのインストール**: 「pip install -r requirements.txt」
-- **3.スクリプトの実行**: 「python system/init_daily_report.py」
+- **【開発者・セットアップ手順】**
+-   **1.リポジトリのクローン**: 「git clone [https://github.com/mochapaparocku-crypto/Monthly-Report-Initializer.git](https://github.com/mochapaparocku-crypto/Monthly-Report-Initializer.git)」
+-   **2.依存ライブラリのインストール**: 「pip install -r requirements.txt」
+-   **3.スクリプトの実行**: 「python system/init_daily_report.py」
+
+- **【エンドユーザー（実務担当者）の日常的な利用フロー】**
+-   **1.成果報告日報_氏名_マスター.xlsm をExcelで開きます。**
+-   **2.シート上に配置されている「日報生成」ボタン（VBAマクロ）をクリックします。**
+-   **3.自動的に当月の日付やレイアウトが初期化され、その日の日報作成を即座に開始できます。**
 
 ## 📁 フォルダ構成（Repository Structure）
 ```text
