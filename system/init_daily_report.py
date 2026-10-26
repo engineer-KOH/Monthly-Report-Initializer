@@ -7,29 +7,43 @@ import sys
 from tkinter import messagebox
 import openpyxl
 from openpyxl.cell.cell import MergedCell
+from openpyxl.styles import PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 
+# 🌟 jpholidayのインポート
+try:
+    import jpholiday
+except ImportError:
+    jpholiday = None
+
+def is_holiday(dt: datetime) -> bool:
+    """土日・祝日かどうかを判定する補助関数"""
+    if dt is None:
+        return False
+    # 土曜日(5), 日曜日(6)
+    if dt.weekday() >= 5:
+        return True
+    # jpholidayによる日本の祝日判定
+    if jpholiday and jpholiday.is_holiday(dt):
+        return True
+    return False
 
 def main():
-    # スクリプト自身のフォルダ（system）と親フォルダ（ルート階層）を取得
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(script_dir)
 
-    # 1. 対象のマスターファイルを動的に特定（ルートフォルダ直下を参照）
     if len(sys.argv) > 1:
         arg_path = sys.argv[1]
-        # 引数が絶対パスか相対パスかに応じて読み込みパスを確定
         if os.path.isabs(arg_path):
             input_file = arg_path
         else:
             input_file = os.path.join(root_dir, arg_path)
     else:
-        # 引数指定がない場合はルートフォルダからマスターファイルを自動検索
         masters = glob.glob(os.path.join(root_dir, "成果報告日報_*_マスター.xlsm"))
         if masters:
             input_file = masters[0]
         else:
-            input_file = os.path.join(root_dir, "成果報告日報_氏名_マスター.xlsm")  # フォールバック
+            input_file = os.path.join(root_dir, "成果報告日報_末永_マスター.xlsm")
 
     if not os.path.exists(input_file):
         messagebox.showerror(
@@ -38,7 +52,6 @@ def main():
         )
         return
 
-    # 🌟 ファイル名から氏名を動的に抽出（例: "成果報告日報_田中_マスター.xlsm" -> "田中"）
     base_name = os.path.splitext(os.path.basename(input_file))[0]
     name_match = re.search(r"成果報告日報_(.+?)_マスター", base_name)
     user_name = name_match.group(1) if name_match else "担当者"
@@ -47,7 +60,6 @@ def main():
         f"マスターファイル '{input_file}'（担当者: {user_name}）を読み込んでいます..."
     )
 
-    # keep_vba=False でVBAマクロを除去
     wb = openpyxl.load_workbook(input_file, keep_vba=False)
 
     config_sheet_name = "年月入力"
@@ -78,7 +90,6 @@ def main():
         )
         return
 
-    # 日付計算
     _, last_day = calendar.monthrange(year, month)
     current_day = datetime(year, month, 1)
     end_day = datetime(year, month, last_day)
@@ -99,10 +110,16 @@ def main():
     sheet_index = 0
     columns = ["B", "C", "D", "E", "F"]
 
+    # ハッチ（グレーの網掛け）パターン
+    hatch_fill = PatternFill(
+        fill_type="lightGray",
+        start_color="E0E0E0",
+        end_color="E0E0E0"
+    )
+
     for sheet_name in list(wb.sheetnames):
         ws = wb[sheet_name]
 
-        # 不要な描画オブジェクトのクリア
         if hasattr(ws, "_drawings"):
             ws._drawings.clear()
         if hasattr(ws, "legacy_drawing"):
@@ -119,22 +136,29 @@ def main():
         new_sheet_name = f"{valid_days[0].strftime('%m.%d')}-{valid_days[-1].strftime('%m.%d')}"
         ws.title = new_sheet_name
 
-        # データクリア
         for row in range(2, ws.max_row + 1):
             for col in range(2, ws.max_column + 1):
                 cell = ws.cell(row=row, column=col)
                 if not isinstance(cell, MergedCell):
                     cell.value = None
 
-        # 日付書き込み
         for idx, day in enumerate(week):
-            cell_coord = f"{columns[idx]}1"
+            col_letter = columns[idx]
+            cell_coord = f"{col_letter}1"
+
             if day is not None:
                 ws[cell_coord].value = day.strftime("%Y-%m-%d")
+
+                # 🌟 休日・祝日の判定とハッチ適用
+                if is_holiday(day):
+                    max_target_row = max(ws.max_row, 18)
+                    for r in range(1, max_target_row + 1):
+                        cell = ws[f"{col_letter}{r}"]
+                        if not isinstance(cell, MergedCell):
+                            cell.fill = hatch_fill
             else:
                 ws[cell_coord].value = "ー"
 
-        # プルダウン再設定
         dv = DataValidation(
             type="list",
             formula1='"業務,自己学習,社内業務"',
@@ -148,7 +172,6 @@ def main():
 
         sheet_index += 1
 
-    # 生成後ファイルから管理用不要シートを削除
     if config_sheet_name in wb.sheetnames:
         wb.remove(wb[config_sheet_name])
 
@@ -156,18 +179,16 @@ def main():
         if menu_sheet_name in wb.sheetnames:
             wb.remove(wb[menu_sheet_name])
 
-    # 🌟 保存先をマスターファイルが存在するフォルダ（ルートフォルダ直下）に明示指定
     output_dir = os.path.dirname(os.path.abspath(input_file))
     new_filename = f"成果報告日報_{user_name}_{year}-{month:02d}.xlsx"
     output_file_path = os.path.join(output_dir, new_filename)
 
     try:
         wb.save(output_file_path)
-
         success_msg = (
             f"✨ {user_name} さんの {year}年{month}月用日報の初期化が完了しました！\n\n"
             f"・出力ファイル名: {new_filename}\n"
-            f"・初期化専用シートを自動削除しました。\n"
+            f"・土日および祝日（文化の日・勤労感謝の日等）のハッチ処理を完了しました。\n"
             f"・VBAマクロ/不要ボタンを除去したクリーンな .xlsx を生成しました。"
         )
         messagebox.showinfo("社内DX初期化完了", success_msg)
