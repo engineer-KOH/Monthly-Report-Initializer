@@ -1,3 +1,5 @@
+"""Automated monthly report initializer and calendar-based formatting tool."""
+
 import calendar
 from datetime import datetime, timedelta
 import glob
@@ -5,30 +7,34 @@ import os
 import re
 import sys
 from tkinter import messagebox
+
 import openpyxl
 from openpyxl.cell.cell import MergedCell
 from openpyxl.styles import PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 
-# 🌟 jpholidayのインポート
+# Import jpholiday safely with fallback handling
 try:
     import jpholiday
 except ImportError:
     jpholiday = None
 
+
 def is_holiday(dt: datetime) -> bool:
-    """土日・祝日かどうかを判定する補助関数"""
+    """Check whether the specified date is a weekend or Japanese public holiday."""
     if dt is None:
         return False
-    # 土曜日(5), 日曜日(6)
+    # Saturday (5), Sunday (6)
     if dt.weekday() >= 5:
         return True
-    # jpholidayによる日本の祝日判定
+    # Japanese public holidays via jpholiday
     if jpholiday and jpholiday.is_holiday(dt):
         return True
     return False
 
+
 def main():
+    """Main execution routine for initializing monthly report workbooks."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(script_dir)
 
@@ -110,7 +116,7 @@ def main():
     sheet_index = 0
     columns = ["B", "C", "D", "E", "F"]
 
-    # ハッチ（グレーの網掛け）パターン
+    # Hatch pattern (gray fill) for weekends and holidays
     hatch_fill = PatternFill(
         fill_type="lightGray",
         start_color="E0E0E0",
@@ -133,7 +139,10 @@ def main():
 
         week = weeks_data[sheet_index]
         valid_days = [d for d in week if d is not None]
-        new_sheet_name = f"{valid_days[0].strftime('%m.%d')}-{valid_days[-1].strftime('%m.%d')}"
+        new_sheet_name = (
+            f"{valid_days[0].strftime('%m.%d')}-"
+            f"{valid_days[-1].strftime('%m.%d')}"
+        )
         ws.title = new_sheet_name
 
         for row in range(2, ws.max_row + 1):
@@ -149,7 +158,7 @@ def main():
             if day is not None:
                 ws[cell_coord].value = day.strftime("%Y-%m-%d")
 
-                # 🌟 休日・祝日の判定とハッチ適用
+                # Judge holidays and apply hatch pattern fills
                 if is_holiday(day):
                     max_target_row = max(ws.max_row, 18)
                     for r in range(1, max_target_row + 1):
